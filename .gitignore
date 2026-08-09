@@ -1,0 +1,32 @@
+
+# Environment variables (API keys - NEVER commit)
+.env
+
+# Virtual environment
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Vector DB / data files (usually regenerated, not needed in repo)
+data/vector_db/
+data/uploads/*
+!data/uploads/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Output/logs
+output.txt
+*.log

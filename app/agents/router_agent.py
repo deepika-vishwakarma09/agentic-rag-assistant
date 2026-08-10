@@ -24,6 +24,7 @@ from app.retrieval.reranker import rerank
 from app.ingestion.embedder import embed_query
 from app.agents.web_search_tool import web_search
 from app.agents.self_correction import verify_answer, retry_with_strict_grounding
+from app.observability.tracer import QueryTracer
 from app.generation.llm_client import call_llm
 from app.generation.prompts import ROUTER_SYSTEM_PROMPT, ANSWER_GENERATION_PROMPT
 
@@ -196,15 +197,22 @@ def ask(
     if conversation_store is not None:
         history_text = conversation_store.get_history_as_text(session_id)
 
-    result = agent.invoke({
-        "question": question,
-        "history": history_text,
-        "route": "",
-        "context_chunks": [],
-        "answer": "",
-        "sources": [],
-        "was_corrected": False
-    })
+    tracer = QueryTracer(question)
+
+    with tracer.track("agent_execution"):
+        result = agent.invoke({
+            "question": question,
+            "history": history_text,
+            "route": "",
+            "context_chunks": [],
+            "answer": "",
+            "sources": [],
+            "was_corrected": False
+        })
+
+    tracer.set_route(result["route"])
+    tracer.set_corrected(result["was_corrected"])
+    tracer.save()
 
     if conversation_store is not None:
         conversation_store.add_message(session_id, "user", question)
@@ -261,3 +269,8 @@ if __name__ == "__main__":
     print(f"Answer: {result3['answer']}")
     print(f"Sources: {result3['sources']}")
     print(f"Self-corrected: {result3['was_corrected']}")
+
+    # Ab dekho ki tracing kaam kar rahi hai — saved traces ka summary
+    print("\n=== Trace Summary (from data/traces.jsonl) ===")
+    from app.observability.tracer import print_summary
+    print_summary()

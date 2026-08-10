@@ -30,3 +30,4 @@ Thumbs.db
 # Output/logs
 output.txt
 *.log
+data/

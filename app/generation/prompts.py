@@ -56,3 +56,16 @@ Respond with ONLY one word: "valid" or "invalid".
 "valid" = answer is fully supported by context
 "invalid" = answer contains unsupported claims
 """
+
+STRICT_RETRY_PROMPT = """Your previous answer contained claims not fully supported
+by the context. Answer again, this time being extremely strict — ONLY state facts
+that are explicitly present in the context below. If the context doesn't fully
+answer the question, clearly say what is missing.
+
+Context:
+{context}
+
+Question: {question}
+
+Give a careful, strictly context-grounded answer:
+"""

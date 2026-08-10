@@ -23,6 +23,7 @@ from app.retrieval.keyword_search import KeywordSearch, merge_search_results
 from app.retrieval.reranker import rerank
 from app.ingestion.embedder import embed_query
 from app.agents.web_search_tool import web_search
+from app.agents.self_correction import verify_answer, retry_with_strict_grounding
 from app.generation.llm_client import call_llm
 from app.generation.prompts import ROUTER_SYSTEM_PROMPT, ANSWER_GENERATION_PROMPT
 
@@ -35,6 +36,7 @@ class AgentState(TypedDict):
     context_chunks: List[Dict]
     answer: str
     sources: List[str]
+    was_corrected: bool     # true agar self-correction ne answer ko dobara banaya
 
 
 # --- Node 1: Router — decide karta hai document ya web ---
@@ -114,6 +116,27 @@ def generate_answer(state: AgentState) -> AgentState:
     return state
 
 
+# --- Node 4: Self-correction — verify answer, retry once if hallucination detected ---
+def verify_and_correct(state: AgentState) -> AgentState:
+    context_text = "\n\n".join([c["text"] for c in state["context_chunks"]])
+
+    if not context_text.strip():
+        # Context hi nahi tha to verify karne ka koi matlab nahi
+        state["was_corrected"] = False
+        return state
+
+    is_valid = verify_answer(context_text, state["answer"])
+
+    if not is_valid:
+        corrected_answer = retry_with_strict_grounding(context_text, state["question"])
+        state["answer"] = corrected_answer
+        state["was_corrected"] = True
+    else:
+        state["was_corrected"] = False
+
+    return state
+
+
 # --- Conditional edge: route decide karke sahi retrieval node pe bhejo ---
 def decide_retrieval_path(state: AgentState) -> Literal["document", "web"]:
     return state["route"]
@@ -131,6 +154,7 @@ def build_agent_graph(vector_store: VectorStore, keyword_search: KeywordSearch):
     graph.add_node("doc_retrieval", lambda s: retrieve_from_documents(s, vector_store, keyword_search))
     graph.add_node("web_retrieval", retrieve_from_web)
     graph.add_node("generate", generate_answer)
+    graph.add_node("verify", verify_and_correct)
 
     graph.set_entry_point("router")
 
@@ -146,7 +170,8 @@ def build_agent_graph(vector_store: VectorStore, keyword_search: KeywordSearch):
 
     graph.add_edge("doc_retrieval", "generate")
     graph.add_edge("web_retrieval", "generate")
-    graph.add_edge("generate", END)
+    graph.add_edge("generate", "verify")
+    graph.add_edge("verify", END)
 
     return graph.compile()
 
@@ -177,7 +202,8 @@ def ask(
         "route": "",
         "context_chunks": [],
         "answer": "",
-        "sources": []
+        "sources": [],
+        "was_corrected": False
     })
 
     if conversation_store is not None:
@@ -187,7 +213,8 @@ def ask(
     return {
         "answer": result["answer"],
         "sources": result["sources"],
-        "route_used": result["route"]
+        "route_used": result["route"],
+        "was_corrected": result["was_corrected"]
     }
 
 
@@ -217,6 +244,7 @@ if __name__ == "__main__":
     print(f"Route used: {result1['route_used']}")
     print(f"Answer: {result1['answer']}")
     print(f"Sources: {result1['sources']}")
+    print(f"Self-corrected: {result1['was_corrected']}")
 
     # Test 2: Follow-up question (isko history samajhni chahiye ki "it" = warranty ya refund)
     print("\n=== Test 2: Follow-up question (memory test) ===")
@@ -224,6 +252,7 @@ if __name__ == "__main__":
     print(f"Route used: {result2['route_used']}")
     print(f"Answer: {result2['answer']}")
     print(f"Sources: {result2['sources']}")
+    print(f"Self-corrected: {result2['was_corrected']}")
 
     # Test 3: Web-based question
     print("\n=== Test 3: Web question ===")
@@ -231,3 +260,4 @@ if __name__ == "__main__":
     print(f"Route used: {result3['route_used']}")
     print(f"Answer: {result3['answer']}")
     print(f"Sources: {result3['sources']}")
+    print(f"Self-corrected: {result3['was_corrected']}")

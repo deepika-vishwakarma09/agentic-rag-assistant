@@ -1,0 +1,11 @@
+
+[
+  {
+    "question": "What is the refund policy?",
+    "ground_truth": "Refunds are allowed within 30 days of purchase."
+  },
+  {
+    "question": "What does the warranty cover?",
+    "ground_truth": "The warranty covers manufacturing defects for 1 year."
+  }
+]

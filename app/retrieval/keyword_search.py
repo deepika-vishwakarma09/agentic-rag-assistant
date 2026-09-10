@@ -2,16 +2,15 @@
 """
 keyword_search.py
 -------------------
-BM25 se keyword-based search karta hai — semantic (FAISS) search ka
-complement hai.
+Performs keyword-based search using BM25 — a complement to semantic (FAISS) search.
 
-BM25 kya hai, simple mein:
-Ye ek statistical formula hai jo dekhta hai ki query ke words kitni
-baar aur kitni "importance" ke saath document mein aaye hain
-(rare words ko zyada weight milta hai, common words jaise "the", "is" ko kam).
+What is BM25, in simple terms:
+It's a statistical formula that checks how often and with how much "importance"
+query words appear in a document
+(rare words get more weight, common words like "the", "is" get less).
 
-Semantic search "meaning" pakadta hai, BM25 "exact words" pakadta hai —
-dono milke better retrieval dete hain.
+Semantic search captures "meaning", BM25 captures "exact words" —
+together they provide better retrieval.
 """
 
 from rank_bm25 import BM25Okapi
@@ -21,31 +20,31 @@ from typing import List, Dict
 class KeywordSearch:
     def __init__(self, chunks: List[Dict]):
         """
-        chunks: chunker.py se aayi list [{"chunk_id":..., "text":..., "page":...}, ...]
+        chunks: list from chunker.py [{"chunk_id":..., "text":..., "page":...}, ...]
         """
         self.chunks = chunks
 
-        # Har chunk ke text ko simple words mein todo (tokenize)
-        # Production mein better tokenizer use kar sakte ho (jaise nltk),
-        # abhi ke liye simple .split() kaafi hai
+        # Break each chunk's text into simple words (tokenize)
+        # In production you can use a better tokenizer (like nltk),
+        # for now simple .split() is sufficient
         tokenized_corpus = [chunk["text"].lower().split() for chunk in chunks]
 
         self.bm25 = BM25Okapi(tokenized_corpus)
 
     def search(self, query: str, top_k: int = 5) -> List[Dict]:
         """
-        Query leta hai, BM25 score ke hisaab se top_k chunks return karta hai.
+        Takes a query and returns the top_k chunks ranked by BM25 score.
         """
         tokenized_query = query.lower().split()
         scores = self.bm25.get_scores(tokenized_query)
 
-        # Scores ke saath chunks ko pair karo, sort karo, top_k lo
+        # Pair chunks with their scores, sort, and take top_k
         scored_chunks = list(zip(self.chunks, scores))
         scored_chunks.sort(key=lambda x: x[1], reverse=True)
 
         results = []
         for chunk, score in scored_chunks[:top_k]:
-            if score > 0:  # zero-score wale irrelevant chunks skip karo
+            if score > 0:  # skip irrelevant zero-score chunks
                 result = chunk.copy()
                 result["score"] = float(score)
                 results.append(result)
@@ -60,18 +59,18 @@ def merge_search_results(
     top_k: int = 5
 ) -> List[Dict]:
     """
-    Semantic (FAISS) aur keyword (BM25) results ko combine karta hai.
+    Combines semantic (FAISS) and keyword (BM25) results.
 
-    Kyun weighted merge? Kyunki semantic search generally zyada meaningful
-    hota hai, isliye usko thoda zyada weight (0.6) dete hain, keyword ko 0.4.
+    Why weighted merge? Because semantic search is generally more meaningful,
+    so we give it slightly more weight (0.6), and keyword gets 0.4.
 
-    Normalization zaroori hai kyunki dono ke scores alag scale mein hote hain
-    (semantic: 0-1, BM25: koi bhi positive number) — bina normalize kiye
-    compare karna galat hoga.
+    Normalization is necessary because both have scores on different scales
+    (semantic: 0-1, BM25: any positive number) — comparing them without
+    normalization would be incorrect.
     """
     combined_scores: Dict[int, Dict] = {}
 
-    # Semantic scores normalize karo (already 0-1 range mein hain, cosine similarity se)
+    # Normalize semantic scores (already in 0-1 range, from cosine similarity)
     for r in semantic_results:
         chunk_id = r["chunk_id"]
         combined_scores[chunk_id] = {
@@ -79,7 +78,7 @@ def merge_search_results(
             "combined_score": r["score"] * semantic_weight
         }
 
-    # BM25 scores normalize karo (max score se divide karke 0-1 range mein lao)
+    # Normalize BM25 scores (divide by max score to bring into 0-1 range)
     if keyword_results:
         max_bm25 = max(r["score"] for r in keyword_results) or 1.0
         for r in keyword_results:
@@ -94,7 +93,7 @@ def merge_search_results(
                     "combined_score": normalized_score
                 }
 
-    # Combined score ke hisaab se sort karo
+    # Sort by combined score
     merged = list(combined_scores.values())
     merged.sort(key=lambda x: x["combined_score"], reverse=True)
 

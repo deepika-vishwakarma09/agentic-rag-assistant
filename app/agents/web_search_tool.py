@@ -2,11 +2,11 @@
 """
 web_search_tool.py
 --------------------
-Tavily API se web search karta hai jab document mein answer na mile.
+Performs web search using the Tavily API when the answer is not found in the document.
 
-Tavily ek LLM-friendly search API hai — ye Google jaisa raw HTML nahi
-deta, balki already-summarized, clean snippets deta hai jo directly
-LLM ko context ke roop mein diye ja sakte hain.
+Tavily is an LLM-friendly search API — it doesn't return raw HTML like Google,
+but instead returns already-summarized, clean snippets that can be directly
+provided to the LLM as context.
 """
 
 from tavily import TavilyClient
@@ -25,11 +25,11 @@ def get_client() -> TavilyClient:
 
 def web_search(query: str, max_results: int = 5) -> List[Dict]:
     """
-    Query leta hai aur web se relevant results laata hai.
+    Takes a query and fetches relevant results from the web.
 
     Returns: [{"title": "...", "content": "...", "url": "..."}, ...]
-    Ye format vector_store.search() ke output jaisa rakha hai
-    (text + source) taaki downstream code same tarah handle kar sake.
+    This format is kept similar to vector_store.search() output
+    (text + source) so that downstream code can handle both the same way.
     """
     client = get_client()
 
@@ -37,7 +37,7 @@ def web_search(query: str, max_results: int = 5) -> List[Dict]:
         response = client.search(
             query=query,
             max_results=max_results,
-            search_depth="basic"  # "advanced" zyada accurate hai but slow + costly
+            search_depth="basic"  # "advanced" is more accurate but slow + costly
         )
     except Exception as e:
         raise ValueError(f"Web search failed: {str(e)}")

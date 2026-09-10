@@ -1,12 +1,12 @@
 """
 vector_store.py
 -----------------
-FAISS ka kaam hai embeddings ko store karna aur "sabse similar chunks
-ढूंढो" wala fast search dena.
+FAISS is responsible for storing embeddings and providing fast
+"find the most similar chunks" search.
 
-FAISS kyun? Kyunki jab hazaaron chunks ho jayein, to har ek se
-manually compare karna slow ho jaata hai. FAISS ek "index" banata hai
-jisse search bahut fast ho jaati hai.
+Why FAISS? Because when there are thousands of chunks, manually comparing
+each one becomes slow. FAISS creates an "index" that makes
+search very fast.
 """
 
 import faiss
@@ -19,24 +19,24 @@ from app.config import settings
 
 class VectorStore:
     def __init__(self, dimension: int = 384):
-        # 384 = all-MiniLM-L6-v2 model ka output size
+        # 384 = output size of the all-MiniLM-L6-v2 model
         self.dimension = dimension
-        self.index = faiss.IndexFlatIP(dimension)  # IP = Inner Product (cosine, kyunki normalized hai)
+        self.index = faiss.IndexFlatIP(dimension)  # IP = Inner Product (cosine, since vectors are normalized)
         self.chunks_metadata: List[Dict] = []  # chunk_id -> {text, page} mapping
 
     def add_chunks(self, embeddings: np.ndarray, chunks: List[Dict]):
         """
-        Embeddings aur unke metadata (text, page number) ko store karta hai.
+        Stores the embeddings and their metadata (text, page number).
         """
         self.index.add(embeddings)
         self.chunks_metadata.extend(chunks)
 
     def search(self, query_embedding: np.ndarray, top_k: int = 5) -> List[Dict]:
         """
-        Query embedding ke sabse similar top_k chunks dhundta hai.
+        Finds the top_k chunks most similar to the query embedding.
 
         Returns: [{"text": "...", "page": 1, "score": 0.85}, ...]
-        Score jitna 1 ke paas, utna zyada relevant.
+        The closer the score is to 1, the more relevant.
         """
         if self.index.ntotal == 0:
             return []
@@ -45,7 +45,7 @@ class VectorStore:
 
         results = []
         for score, idx in zip(scores[0], indices[0]):
-            if idx == -1:  # FAISS -1 deta hai agar enough results na ho
+            if idx == -1:  # FAISS returns -1 if there aren't enough results
                 continue
             chunk_data = self.chunks_metadata[idx].copy()
             chunk_data["score"] = float(score)
@@ -54,7 +54,7 @@ class VectorStore:
         return results
 
     def save(self, path: str = None):
-        """Index aur metadata disk pe save karo (baar baar re-embed na karna pade)."""
+        """Save the index and metadata to disk (so re-embedding isn't needed every time)."""
         path = path or settings.VECTOR_DB_PATH
         os.makedirs(os.path.dirname(path), exist_ok=True)
 
@@ -63,7 +63,7 @@ class VectorStore:
             pickle.dump(self.chunks_metadata, f)
 
     def load(self, path: str = None):
-        """Pehle se saved index load karo."""
+        """Load a previously saved index."""
         path = path or settings.VECTOR_DB_PATH
 
         self.index = faiss.read_index(f"{path}.faiss")

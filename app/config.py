@@ -10,7 +10,7 @@ class Settings:
 
     # Chunking settings
     CHUNK_SIZE = 500          # characters per chunk
-    CHUNK_OVERLAP = 50        # overlap taaki context na tute
+    CHUNK_OVERLAP = 50        # overlap so that context is not broken
 
     # Embedding model
     EMBEDDING_MODEL = "all-MiniLM-L6-v2"   # fast + lightweight, free

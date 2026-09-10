@@ -1,0 +1,12 @@
+services:
+  agentic-rag-assistant:
+    build: .
+    ports:
+      - "8501:8501"
+    environment:
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - TAVILY_API_KEY=${TAVILY_API_KEY}
+    volumes:
+      # data/ is made a volume so that the vector DB and traces
+      # persist across container restarts
+      - ./data:/app/data

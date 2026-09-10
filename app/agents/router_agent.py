@@ -1,18 +1,18 @@
 """
 router_agent.py
 ------------------
-Ye project ka "agentic" core hai.
+This is the "agentic" core of the project.
 
 Flow:
-1. User ka question aata hai
-2. Router LLM decide karta hai: "document" se jawab doon ya "web" search karoon
-3. Uske hisaab se retrieval hoti hai (FAISS ya Tavily)
-4. Retrieved context ke saath LLM final answer generate karta hai
-5. Answer ke saath source citation bhi milta hai
+1. User's question comes in
+2. Router LLM decides: should I answer from the "document" or do a "web" search
+3. Retrieval happens accordingly (FAISS or Tavily)
+4. LLM generates the final answer with the retrieved context
+5. Source citation is included with the answer
 
-LangGraph isliye use kiya kyunki ye multi-step agent flows ko
-"graph" ki tarah define karne deta hai — har step ek node hai,
-aur edges decide karte hain agla step kya hoga (conditional routing).
+LangGraph is used because it allows defining multi-step agent flows
+as a "graph" — each step is a node, and edges decide what the next
+step will be (conditional routing).
 """
 
 from typing import TypedDict, List, Dict, Literal
@@ -29,26 +29,26 @@ from app.generation.llm_client import call_llm
 from app.generation.prompts import ROUTER_SYSTEM_PROMPT, ANSWER_GENERATION_PROMPT
 
 
-# --- Agent state: ye har node ke beech mein pass hoti hai ---
+# --- Agent state: this is passed between each node ---
 class AgentState(TypedDict):
     question: str
     history: str             # formatted previous conversation text
-    route: str              # "document" ya "web"
+    route: str              # "document" or "web"
     context_chunks: List[Dict]
     answer: str
     sources: List[str]
-    was_corrected: bool     # true agar self-correction ne answer ko dobara banaya
+    was_corrected: bool     # true if self-correction re-generated the answer
 
 
-# --- Node 1: Router — decide karta hai document ya web ---
+# --- Node 1: Router — decides document or web ---
 def route_question(state: AgentState) -> AgentState:
     decision = call_llm(
         system_prompt=ROUTER_SYSTEM_PROMPT,
         user_prompt=state["question"],
-        temperature=0.0  # routing decision consistent honi chahiye
+        temperature=0.0  # routing decision should be consistent
     ).lower().strip()
 
-    # Safety: agar LLM kuch aur bol de, default "document" rakho
+    # Safety: if LLM outputs something unexpected, default to "document"
     route = "web" if "web" in decision else "document"
 
     state["route"] = route
@@ -94,11 +94,11 @@ def retrieve_from_web(state: AgentState) -> AgentState:
 
 # --- Node 3: Answer generation ---
 def generate_answer(state: AgentState) -> AgentState:
-    # Sare chunks ka text jodo ek context string mein
+    # Combine all chunk texts into one context string
     context_text = "\n\n".join([c["text"] for c in state["context_chunks"]])
 
     if not context_text.strip():
-        state["answer"] = "Mujhe is sawaal ka jawab dene ke liye kaafi context nahi mila."
+        state["answer"] = "I could not find enough context to answer this question."
         return state
 
     prompt = ANSWER_GENERATION_PROMPT.format(
@@ -122,7 +122,7 @@ def verify_and_correct(state: AgentState) -> AgentState:
     context_text = "\n\n".join([c["text"] for c in state["context_chunks"]])
 
     if not context_text.strip():
-        # Context hi nahi tha to verify karne ka koi matlab nahi
+        # No context was available, so there's no point in verifying
         state["was_corrected"] = False
         return state
 
@@ -138,16 +138,16 @@ def verify_and_correct(state: AgentState) -> AgentState:
     return state
 
 
-# --- Conditional edge: route decide karke sahi retrieval node pe bhejo ---
+# --- Conditional edge: decide the route and send to the correct retrieval node ---
 def decide_retrieval_path(state: AgentState) -> Literal["document", "web"]:
     return state["route"]
 
 
 def build_agent_graph(vector_store: VectorStore, keyword_search: KeywordSearch):
     """
-    Poora LangGraph graph banata hai aur compile karke return karta hai.
-    vector_store aur keyword_search dono yahan pass karte hain kyunki
-    dono already-loaded documents rakhte hain (hybrid search ke liye zaroori).
+    Builds the complete LangGraph graph and returns it compiled.
+    vector_store and keyword_search are passed here because both hold
+    already-loaded documents (needed for hybrid search).
     """
     graph = StateGraph(AgentState)
 
@@ -159,7 +159,7 @@ def build_agent_graph(vector_store: VectorStore, keyword_search: KeywordSearch):
 
     graph.set_entry_point("router")
 
-    # Router ke baad, route ke hisaab se doc ya web retrieval
+    # After the router, go to doc or web retrieval based on the route
     graph.add_conditional_edges(
         "router",
         decide_retrieval_path,
@@ -185,11 +185,11 @@ def ask(
     session_id: str = "default"
 ) -> Dict:
     """
-    Main entry point — question do, poora answer + sources + route wapas milega.
+    Main entry point — provide a question, get back the full answer + sources + route.
 
-    conversation_store diya ho to previous history bhi use hogi (follow-up
-    questions samajhne ke liye), aur is exchange ko history mein save bhi
-    kar diya jaayega.
+    If conversation_store is provided, previous history will also be used
+    (for understanding follow-up questions), and this exchange will be
+    saved to the history.
     """
     agent = build_agent_graph(vector_store, keyword_search)
 
@@ -230,7 +230,7 @@ def ask(
 if __name__ == "__main__":
     from app.ingestion.embedder import embed_chunks
 
-    # Dummy document data setup karo testing ke liye
+    # Set up dummy document data for testing
     sample_chunks = [
         {"chunk_id": 0, "text": "Our company's refund policy allows returns within 30 days.", "page": 1},
         {"chunk_id": 1, "text": "The product warranty covers manufacturing defects for 1 year.", "page": 2},
@@ -254,7 +254,7 @@ if __name__ == "__main__":
     print(f"Sources: {result1['sources']}")
     print(f"Self-corrected: {result1['was_corrected']}")
 
-    # Test 2: Follow-up question (isko history samajhni chahiye ki "it" = warranty ya refund)
+    # Test 2: Follow-up question (the history should understand that "it" = warranty or refund)
     print("\n=== Test 2: Follow-up question (memory test) ===")
     result2 = ask("What about the warranty period for it?", store, keyword_search, conv_store, session_id)
     print(f"Route used: {result2['route_used']}")
@@ -270,7 +270,7 @@ if __name__ == "__main__":
     print(f"Sources: {result3['sources']}")
     print(f"Self-corrected: {result3['was_corrected']}")
 
-    # Ab dekho ki tracing kaam kar rahi hai — saved traces ka summary
+    # Now check that tracing is working — summary of saved traces
     print("\n=== Trace Summary (from data/traces.jsonl) ===")
     from app.observability.tracer import print_summary
     print_summary()

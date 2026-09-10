@@ -1,8 +1,8 @@
 """
 prompts.py
 -----------
-Sare prompt templates ek jagah — taaki tweak karna easy ho
-bina baaki code chhede.
+All prompt templates in one place — so they can be tweaked easily
+without touching the rest of the code.
 """
 
 ROUTER_SYSTEM_PROMPT = """You are a routing agent. Your job is to decide whether a

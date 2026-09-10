@@ -2,12 +2,12 @@
 """
 self_correction.py
 ---------------------
-Answer generate hone ke baad, ye module use kaam karta hai:
-1. Verify karta hai ki answer context se supported hai ya nahi
-2. Agar nahi (hallucination lagti hai), to ek strict retry karta hai
+After an answer is generated, this module does the following:
+1. Verifies whether the answer is supported by the context or not
+2. If not (hallucination is suspected), it performs a strict retry
 
-Ye "reflection agent" pattern hai — agent apna khud ka output check
-karta hai aur improve karne ki koshish karta hai, bina human ke.
+This is the "reflection agent" pattern — the agent checks its own output
+and tries to improve it, without human intervention.
 """
 
 from app.generation.llm_client import call_llm
@@ -16,15 +16,15 @@ from app.generation.prompts import SELF_CORRECTION_PROMPT, STRICT_RETRY_PROMPT
 
 def verify_answer(context: str, answer: str) -> bool:
     """
-    Answer ko context ke against check karta hai.
-    Returns: True agar valid (context-supported), False agar invalid (hallucination lagti hai)
+    Checks the answer against the context.
+    Returns: True if valid (context-supported), False if invalid (hallucination suspected)
     """
     prompt = SELF_CORRECTION_PROMPT.format(context=context, answer=answer)
 
     verdict = call_llm(
         system_prompt="You are a strict fact-checker.",
         user_prompt=prompt,
-        temperature=0.0  # verification deterministic honi chahiye
+        temperature=0.0  # verification should be deterministic
     ).lower().strip()
 
     return "valid" in verdict and "invalid" not in verdict
@@ -32,15 +32,15 @@ def verify_answer(context: str, answer: str) -> bool:
 
 def retry_with_strict_grounding(context: str, question: str) -> str:
     """
-    Jab pehla answer invalid nikle, isse ek zyada strict, careful
-    answer generate hota hai jo sirf context pe strictly based ho.
+    When the first answer turns out to be invalid, this generates a more
+    strict, careful answer that is strictly based only on the context.
     """
     prompt = STRICT_RETRY_PROMPT.format(context=context, question=question)
 
     return call_llm(
         system_prompt="You are a careful, strictly accurate assistant.",
         user_prompt=prompt,
-        temperature=0.1  # aur bhi kam creativity, zyada factual
+        temperature=0.1  # even less creativity, more factual
     )
 
 

@@ -2,19 +2,18 @@
 """
 tracer.py
 -----------
-Observability ka kaam hai: har query ka poora "trace" record karna —
-kaunsa route liya, har step mein kitna time laga, kitne tokens use hue.
+The purpose of observability is to record a complete "trace" for every query —
+which route was taken, how long each step took, how many tokens were used.
 
-Production companies (jaise Langfuse, LangSmith) isi cheez ko bade scale
-pe karte hain. Hum yahan ek simple, local version bana rahe hain — ek
-JSONL file mein har query ka trace likh dete hain. Isse hum baad mein
-dekh sakte hain: "kaunsa route sabse zyada use hota hai", "kaunsi
-queries slow hain", "kahan errors aa rahe hain" — bilkul waisa jaisa
-production mein debug karte waqt chahiye hota hai.
+Production companies (like Langfuse, LangSmith) do this same thing at a
+large scale. Here we are building a simple, local version — we write each
+query's trace to a JSONL file. This lets us later analyze: "which route is
+used the most", "which queries are slow", "where are errors occurring" —
+exactly the kind of things needed when debugging in production.
 
-JSONL (JSON Lines) format isliye use kiya kyunki har line ek independent
-JSON object hoti hai — naye traces append karna easy hota hai, aur
-Pandas se load karke analyze karna bhi.
+JSONL (JSON Lines) format is used because each line is an independent
+JSON object — appending new traces is easy, and it can also be
+loaded and analyzed with Pandas.
 """
 
 import json
@@ -29,8 +28,8 @@ TRACE_LOG_PATH = "data/traces.jsonl"
 
 class QueryTracer:
     """
-    Ek single query ke liye trace collect karta hai. `with` block ke
-    andar steps ko time karo, phir save() call karo end mein.
+    Collects a trace for a single query. Time the steps inside a `with` block,
+    then call save() at the end.
     """
 
     def __init__(self, question: str):
@@ -45,7 +44,7 @@ class QueryTracer:
     def track(self, step_name: str):
         """
         Usage: with tracer.track("retrieval"): ...code...
-        Automatically us step ka time record kar leta hai.
+        Automatically records the time taken for that step.
         """
         step_start = time.time()
         try:
@@ -64,7 +63,7 @@ class QueryTracer:
 
     def save(self):
         """
-        Poora trace ek JSON line ke roop mein file mein append karta hai.
+        Appends the complete trace as a JSON line to the file.
         """
         os.makedirs(os.path.dirname(TRACE_LOG_PATH), exist_ok=True)
 
@@ -87,7 +86,7 @@ class QueryTracer:
 
 
 def load_traces() -> list:
-    """Saved traces ko wapas load karta hai, analysis ke liye."""
+    """Loads saved traces back for analysis."""
     if not os.path.exists(TRACE_LOG_PATH):
         return []
 
@@ -101,13 +100,13 @@ def load_traces() -> list:
 
 def print_summary():
     """
-    Ek quick summary print karta hai — kitni queries, average time,
-    route breakdown. Ye "dashboard" ka simplest version hai.
+    Prints a quick summary — total queries, average time,
+    route breakdown. This is the simplest version of a "dashboard".
     """
     traces = load_traces()
 
     if not traces:
-        print("Abhi tak koi trace record nahi hui.")
+        print("No traces have been recorded yet.")
         return
 
     total = len(traces)
@@ -130,10 +129,10 @@ if __name__ == "__main__":
     tracer = QueryTracer("What is the refund policy?")
 
     with tracer.track("retrieval"):
-        t.sleep(0.5)  # dummy delay, retrieval simulate kar rahe hain
+        t.sleep(0.5)  # dummy delay, simulating retrieval
 
     with tracer.track("generation"):
-        t.sleep(0.3)  # dummy delay, LLM call simulate kar rahe hain
+        t.sleep(0.3)  # dummy delay, simulating LLM call
 
     tracer.set_route("document")
     tracer.set_corrected(False)

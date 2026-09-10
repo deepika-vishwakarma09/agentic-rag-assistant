@@ -1,0 +1,28 @@
+# Virtual environment
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Environment secrets (must be passed at runtime, not baked into image)
+.env
+
+# Data (regenerated at runtime, or mounted as volume)
+data/
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+
+# Docs/output
+output.txt
+*.log
+notebooks/
+tests/
+.ipynb_checkpoints/

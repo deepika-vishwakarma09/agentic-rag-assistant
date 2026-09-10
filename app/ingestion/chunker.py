@@ -2,16 +2,16 @@
 """
 chunker.py
 -----------
-Extracted text ko chhote chunks mein todne ka kaam.
+Breaks extracted text into smaller chunks.
 
-Kyun chunk karte hain?
-- LLM aur embeddings ek limited size ka text hi acche se handle karte hain
-- Chote, focused chunks se retrieval zyada accurate hoti hai
-  (pura document dene se better ek relevant paragraph dena)
+Why do we chunk?
+- LLMs and embeddings can only handle a limited size of text effectively
+- Smaller, focused chunks lead to more accurate retrieval
+  (giving a relevant paragraph is better than giving the entire document)
 
-Overlap kyun rakhte hain?
-- Agar ek sentence exactly chunk boundary pe kat jaye, to context toot sakta hai
-- Thoda overlap (jaise 50 characters) rakhne se ye problem kam ho jaati hai
+Why do we keep overlap?
+- If a sentence gets cut exactly at a chunk boundary, context can be lost
+- Keeping a small overlap (e.g., 50 characters) helps reduce this problem
 """
 
 from typing import List, Dict
@@ -24,8 +24,8 @@ def chunk_text(
     overlap: int = None
 ) -> List[Dict]:
     """
-    Page-wise text leta hai aur chunks mein todta hai, page number
-    metadata ke saath (source citation ke liye zaroori).
+    Takes page-wise text and breaks it into chunks, along with page number
+    metadata (needed for source citation).
 
     Returns: [{"chunk_id": 0, "text": "...", "page": 1}, ...]
     """
@@ -44,7 +44,7 @@ def chunk_text(
             end = start + chunk_size
             chunk_str = text[start:end].strip()
 
-            if chunk_str:  # empty chunk skip karo
+            if chunk_str:  # skip empty chunks
                 all_chunks.append({
                     "chunk_id": chunk_id,
                     "text": chunk_str,
@@ -52,7 +52,7 @@ def chunk_text(
                 })
                 chunk_id += 1
 
-            # Overlap ke saath next chunk shuru karo
+            # Start the next chunk with overlap
             start += (chunk_size - overlap)
 
     return all_chunks

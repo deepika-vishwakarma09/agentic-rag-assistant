@@ -2,10 +2,10 @@
 """
 llm_client.py
 --------------
-Groq API se LLaMA model ko call karne ka wrapper.
+Wrapper for calling the LLaMA model via the Groq API.
 
-Groq kyun? Kyunki ye bahut fast inference deta hai (LPU hardware use karta hai)
-aur free tier generous hai fresher projects ke liye.
+Why Groq? Because it provides very fast inference (uses LPU hardware)
+and the free tier is generous for fresher/student projects.
 """
 
 from groq import Groq
@@ -23,10 +23,10 @@ def get_client() -> Groq:
 
 def call_llm(system_prompt: str, user_prompt: str, temperature: float = 0.3) -> str:
     """
-    LLM ko ek system prompt aur user prompt deke response leta hai.
+    Sends a system prompt and user prompt to the LLM and gets a response.
 
-    temperature kam (0.3) rakha hai kyunki hume factual, consistent answers
-    chahiye — creative writing nahi.
+    Temperature is kept low (0.3) because we need factual, consistent answers
+    — not creative writing.
     """
     client = get_client()
 

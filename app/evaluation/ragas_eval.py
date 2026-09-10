@@ -1,17 +1,17 @@
 """
 ragas_eval.py
 ---------------
-Hamare RAG system ko numbers se measure karta hai, RAGAS library se.
+Measures our RAG system numerically using the RAGAS library.
 
-3 metrics measure karte hain:
-1. Faithfulness — kya answer sirf context se aaya, ya LLM ne khud se
-   kuch bana diya (hallucination)?
-2. Answer Relevancy — kya answer actually sawaal se related hai?
-3. Context Precision — kya jo chunks retrieve hue wo sach mein useful the?
+3 metrics are measured:
+1. Faithfulness — did the answer come only from the context, or did the LLM
+   make something up on its own (hallucination)?
+2. Answer Relevancy — is the answer actually related to the question?
+3. Context Precision — were the retrieved chunks actually useful?
 
-Important: RAGAS by default OpenAI use karta hai. Humne isko Groq
-(jo already use kar rahe hain) aur local HuggingFace embeddings ke
-saath configure kiya hai, taaki koi extra OpenAI key na chahiye.
+Important: RAGAS uses OpenAI by default. We've configured it with Groq
+(which we're already using) and local HuggingFace embeddings, so no
+extra OpenAI key is needed.
 """
 
 import json
@@ -39,8 +39,8 @@ def run_agent_on_test_set(
     keyword_search
 ) -> Dict:
     """
-    Har test question ko agent se chalata hai aur RAGAS ke liye
-    zaroori format mein data collect karta hai: question, answer,
+    Runs each test question through the agent and collects data in the
+    format required by RAGAS: question, answer,
     contexts (list of retrieved texts), ground_truth.
     """
     questions, answers, contexts_list, ground_truths = [], [], [], []
@@ -48,19 +48,19 @@ def run_agent_on_test_set(
     for item in test_set:
         question = item["question"]
 
-        # Agent ko call karo — ye already document/web retrieval + answer
-        # generation dono karta hai
+        # Call the agent — it already handles both document/web retrieval +
+        # answer generation
         result = ask(question, vector_store, keyword_search)
 
         questions.append(question)
         answers.append(result["answer"])
         ground_truths.append(item["ground_truth"])
 
-        # Note: RAGAS ko retrieved chunks ka raw text chahiye, sources nahi.
-        # Router agent abhi sirf sources return karta hai, isliye yahan
-        # hum context ko answer ke through hi approximate kar rahe hain
-        # agar chunks directly available na hon. Better production setup
-        # mein router_agent se raw context_chunks bhi return karo.
+        # Note: RAGAS needs the raw text of retrieved chunks, not just sources.
+        # The router agent currently only returns sources, so here
+        # we approximate context through the answer itself
+        # if chunks are not directly available. In a better production setup,
+        # return raw context_chunks from the router_agent as well.
         contexts_list.append([result["answer"]])
 
     return {
@@ -73,8 +73,8 @@ def run_agent_on_test_set(
 
 def evaluate_rag_system(vector_store, keyword_search, test_set_path: str = None):
     """
-    Poora evaluation pipeline: test set load karo, agent chalao,
-    RAGAS metrics compute karo, results print karo.
+    Complete evaluation pipeline: load the test set, run the agent,
+    compute RAGAS metrics, print the results.
     """
     test_set_path = test_set_path or "app/evaluation/test_questions.json"
     test_set = load_test_set(test_set_path)
@@ -84,13 +84,13 @@ def evaluate_rag_system(vector_store, keyword_search, test_set_path: str = None)
 
     dataset = Dataset.from_dict(eval_data)
 
-    # RAGAS ko Groq LLM aur local embeddings ke saath configure karo
-    # (default OpenAI hai, jo hume nahi chahiye)
+    # Configure RAGAS with Groq LLM and local embeddings
+    # (default is OpenAI, which we don't want)
     llm = ChatGroq(api_key=settings.GROQ_API_KEY, model=settings.GROQ_MODEL)
     embeddings = HuggingFaceEmbeddings(model_name=settings.EMBEDDING_MODEL)
 
-    # Groq ka free tier rate-limited hai — kam parallel workers aur
-    # zyada timeout dene se TimeoutError errors avoid hote hain
+    # Groq's free tier is rate-limited — using fewer parallel workers and
+    # a longer timeout helps avoid TimeoutError errors
     run_config = RunConfig(timeout=180, max_workers=2)
 
     result = evaluate(

@@ -2,9 +2,9 @@
 """
 pdf_parser.py
 --------------
-PDF se text extract karne ka kaam yahan hota hai.
-Har page ka text nikaal ke, page number ke saath return karte hain
-taaki baad mein source citation ("page 3 se aaya") dikha saken.
+Handles text extraction from PDFs.
+Extracts text from each page and returns it along with the page number
+so that source citation ("came from page 3") can be shown later.
 """
 
 import fitz  # PyMuPDF
@@ -13,8 +13,8 @@ from typing import List, Dict
 
 def extract_text_from_pdf(file_path: str) -> List[Dict]:
     """
-    PDF file path leta hai, aur har page ka text nikaal ke
-    list of dicts return karta hai: [{"page": 1, "text": "..."}, ...]
+    Takes a PDF file path and extracts text from each page,
+    returning a list of dicts: [{"page": 1, "text": "..."}, ...]
     """
     pages_data = []
 
@@ -24,7 +24,7 @@ def extract_text_from_pdf(file_path: str) -> List[Dict]:
         for page_num, page in enumerate(doc, start=1):
             text = page.get_text().strip()
 
-            # Empty pages (jaise sirf image ho) skip kar do abhi ke liye
+            # Skip empty pages (e.g., pages with only images) for now
             if text:
                 pages_data.append({
                     "page": page_num,
@@ -38,20 +38,20 @@ def extract_text_from_pdf(file_path: str) -> List[Dict]:
 
     if not pages_data:
         raise ValueError("No extractable text found in PDF. "
-                          "Ho sakta hai ye scanned PDF ho — OCR chahiye hoga.")
+                          "This might be a scanned PDF — OCR may be needed.")
 
     return pages_data
 
 
 def get_full_text(pages_data: List[Dict]) -> str:
     """
-    Sare pages ka text combine karke ek single string return karta hai.
-    Chunking se pehle isko use karenge.
+    Combines text from all pages and returns a single string.
+    This will be used before chunking.
     """
     return "\n\n".join([p["text"] for p in pages_data])
 
 
-# --- Quick test (isko directly run karke check kar sakti ho) ---
+# --- Quick test (you can run this directly to check) ---
 if __name__ == "__main__":
     import sys
 

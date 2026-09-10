@@ -2,17 +2,17 @@
 """
 embedder.py
 ------------
-Text chunks ko embeddings (numbers ki list) mein convert karta hai.
+Converts text chunks into embeddings (list of numbers).
 
-Embedding kya hai, simple example se samjho:
-"cat" aur "kitten" ke embeddings ek dusre ke paas honge (similar meaning)
-"cat" aur "car" ke embeddings door honge (different meaning)
-Isi "closeness" ka use search ke liye karte hain.
+What is an embedding? A simple example:
+The embeddings for "cat" and "kitten" will be close to each other (similar meaning)
+The embeddings for "cat" and "car" will be far apart (different meaning)
+We use this "closeness" for search.
 
-Hum "all-MiniLM-L6-v2" use kar rahe hain kyunki:
-- Free hai, local pe chalta hai (koi API cost nahi)
-- Fast hai (384-dimension vectors, chota size)
-- Achi accuracy deta hai general text ke liye
+We are using "all-MiniLM-L6-v2" because:
+- It's free and runs locally (no API cost)
+- It's fast (384-dimension vectors, small size)
+- It gives good accuracy for general text
 """
 
 from sentence_transformers import SentenceTransformer
@@ -20,7 +20,7 @@ from typing import List, Dict
 import numpy as np
 from app.config import settings
 
-# Model ek baar load hota hai (global), baar baar load na ho isliye
+# Model is loaded once (global) to avoid loading it repeatedly
 _model = None
 
 
@@ -33,8 +33,8 @@ def get_model() -> SentenceTransformer:
 
 def embed_chunks(chunks: List[Dict]) -> np.ndarray:
     """
-    Chunks ki list leta hai (jo chunker.py se aayi thi) aur
-    unka embedding matrix return karta hai.
+    Takes a list of chunks (from chunker.py) and returns
+    their embedding matrix.
 
     Input: [{"chunk_id": 0, "text": "...", "page": 1}, ...]
     Output: numpy array of shape (num_chunks, 384)
@@ -42,12 +42,12 @@ def embed_chunks(chunks: List[Dict]) -> np.ndarray:
     model = get_model()
     texts = [chunk["text"] for chunk in chunks]
 
-    # convert_to_numpy=True taaki FAISS mein directly daal saken
+    # convert_to_numpy=True so we can directly insert into FAISS
     embeddings = model.encode(
         texts,
         convert_to_numpy=True,
         show_progress_bar=True,
-        normalize_embeddings=True  # cosine similarity ke liye zaroori
+        normalize_embeddings=True  # required for cosine similarity
     )
 
     return embeddings
@@ -55,8 +55,8 @@ def embed_chunks(chunks: List[Dict]) -> np.ndarray:
 
 def embed_query(query: str) -> np.ndarray:
     """
-    User ka question aane par usko bhi embedding mein convert karna hota hai
-    taaki uska matching chunks ke saath comparison ho sake.
+    When a user's question arrives, it also needs to be converted into
+    an embedding so it can be compared with the stored chunks.
     """
     model = get_model()
     embedding = model.encode(
@@ -79,9 +79,9 @@ if __name__ == "__main__":
     query_emb = embed_query("What is AI?")
     print(f"Query embedding shape: {query_emb.shape}")
 
-    # Similarity check (dono normalize hain to bas dot product = cosine similarity)
+    # Similarity check (both are normalized, so dot product = cosine similarity)
     similarity_with_ml = np.dot(embeddings[0], query_emb[0])
     similarity_with_pizza = np.dot(embeddings[1], query_emb[0])
     print(f"Similarity with ML sentence: {similarity_with_ml:.4f}")
     print(f"Similarity with pizza sentence: {similarity_with_pizza:.4f}")
-    print("(ML wala score zyada hona chahiye, kyunki query bhi AI ke baare mein hai)")
+    print("(ML score should be higher, because the query is also about AI)")

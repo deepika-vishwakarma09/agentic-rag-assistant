@@ -23,44 +23,44 @@ Most RAG (Retrieval-Augmented Generation) tutorials stop at "embed and retrieve.
 
 ```
                          ┌─────────────────────┐
-                         │   User Question      │
-                         └──────────┬───────────┘
+                         │   User Question     │
+                         └──────────┬──────────┘
                                     │
                          ┌──────────▼───────────┐
-                         │   Router Agent         │
-                         │   (LangGraph + LLM)    │
-                         │  "document" or "web"?  │
+                         │   Router Agent       │
+                         │   (LangGraph + LLM)  │
+                         │  "document" or "web"?│
                          └──────────┬───────────┘
-                    ┌───────────────┴────────────────┐
+                    ┌───────────────┴────────────────--┐
                     │                                  │
          ┌──────────▼──────────┐          ┌───────────▼───────────┐
-         │  Document Retrieval   │          │    Web Search           │
-         │  ┌─────────────────┐ │          │    (Tavily API)         │
-         │  │ BM25 (keyword)   │ │          └───────────┬───────────┘
-         │  │ FAISS (semantic) │ │                      │
-         │  │      ↓ merge     │ │                      │
-         │  │ Cross-Encoder    │ │                      │
-         │  │   Reranker       │ │                      │
-         │  └─────────────────┘ │                      │
+         │  Document Retrieval │          │    Web Search         │
+         │  ┌─────────────────┐│          │    (Tavily API)       │
+         │  │ BM25 (keyword)  ││          └───────────┬───────────┘
+         │  │ FAISS (semantic)││                      │
+         │  │      ↓ merge    ││                      │
+         │  │ Cross-Encoder   ││                      │
+         │  │   Reranker      ││                      │
+         │  └─────────────────┘│                      │
          └──────────┬──────────┘                      │
-                    └───────────────┬──────────────────┘
+                    └───────────────┬─────────────────┘
                                     │
                          ┌──────────▼───────────┐
-                         │  Answer Generation     │
-                         │  (Groq LLaMA 3.1)      │
-                         │  + Conversation Memory │
+                         │  Answer Generation   │
+                         │  (Groq LLaMA 3.1)    │
+                         │  +Conversation Memory│
                          └──────────┬───────────┘
                                     │
-                         ┌──────────▼───────────┐
-                         │  Self-Correction       │
-                         │  Verify → Retry if     │
-                         │  hallucination detected│
-                         └──────────┬───────────┘
-                                    │
-                         ┌──────────▼───────────┐
-                         │  Answer + Sources      │
-                         │  (traced & logged)     │
-                         └───────────────────────┘
+                           ┌──────────▼───────────┐
+                           │ Self-Correction      │
+                           │ Verify → Retry if    │
+                           │hallucination detected│
+                           └──────────┬───────────┘
+                                      │
+                           ┌──────────▼───────────┐
+                           │  Answer + Sources    │
+                           │  (traced & logged)   │
+                           └──────────────────────┘
 ```
 
 ---
